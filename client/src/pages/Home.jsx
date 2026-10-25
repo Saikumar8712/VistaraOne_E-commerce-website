@@ -168,7 +168,7 @@ export default function Home() {
                   onClick={() => navigate(`/c/${c.slug}`)}
                   className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-3xl bg-navy-700/80 p-3 text-center transition hover:bg-navy-600 hover:shadow-xl"
                 >
-                  <I className="h-8 w-8 text-lime" />
+                  <I className="h-7 w-7 text-lime" />
                   <span className="mt-2 line-clamp-1 text-[11px] font-bold text-slate-200">
                     {c.name}
                   </span>
