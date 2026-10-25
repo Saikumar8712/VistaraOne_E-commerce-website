@@ -33,10 +33,22 @@ export default function ProductCard({ p }) {
     toggleWish(p)
   }
 
-  const displayImg =
-    p.image ||
-    (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '') ||
-    (typeof p.images === 'string' ? p.images : '')
+  const [currentImgIdx, setCurrentImgIdx] = useState(0)
+
+  const imageList = Array.isArray(p.images) && p.images.length > 0
+    ? p.images
+    : (p.image ? [p.image] : [])
+
+  const DEFAULT_FALLBACK = 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=800&auto=format&fit=crop&q=80'
+  const displayImg = imageList[currentImgIdx] || DEFAULT_FALLBACK
+
+  const handleImageError = () => {
+    if (currentImgIdx + 1 < imageList.length) {
+      setCurrentImgIdx((prev) => prev + 1)
+    } else {
+      setImgErr(true)
+    }
+  }
 
   return (
     <motion.article
@@ -46,19 +58,13 @@ export default function ProductCard({ p }) {
     >
       {/* Product Image Box */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-800/50">
-        {displayImg && !imgErr ? (
-          <img
-            src={displayImg}
-            alt={p.name}
-            loading="lazy"
-            onError={() => setImgErr(true)}
-            className="h-full w-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="grid h-full place-items-center">
-            <Package className="h-10 w-10 text-slate-300" aria-hidden />
-          </div>
-        )}
+        <img
+          src={!imgErr ? displayImg : DEFAULT_FALLBACK}
+          alt={p.name}
+          loading="lazy"
+          onError={handleImageError}
+          className="h-full w-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+        />
 
         {/* Discount Badge */}
         {hasDeal && off > 0 && (
