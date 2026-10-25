@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -23,6 +23,49 @@ import {
 import { useShop } from '../context/ShopContext'
 import { useAuth } from '../context/AuthContext'
 import { getProducts } from '../services/api'
+
+const CATEGORY_KEYWORD_MAP = [
+  {
+    slug: 'electronics',
+    keywords: ['electronics', 'electronic', 'mobi', 'mobile', 'mobiles', 'phone', 'phones', 'smartphone', 'smartphones', 'cell', 'lap', 'laptop', 'laptops', 'notebook', 'macbook', 'audio', 'earphone', 'headphone', 'earbuds', 'tablet', 'gadget', 'comp', 'computer'],
+  },
+  {
+    slug: 'fashion',
+    keywords: ['fash', 'fashion', 'cloth', 'clothes', 'clothing', 'apparel', 'shirt', 'tshirt', 'jeans', 'dress', 'footwear', 'shoes', 'sneakers', 'wear', 'men', 'women'],
+  },
+  {
+    slug: 'appliances',
+    keywords: ['appli', 'appliance', 'appliances', 'tv', 'television', 'fridge', 'refrigerator', 'ac', 'air conditioner', 'cooler', 'washing machine', 'microwave', 'oven', 'geyser', 'heater'],
+  },
+  {
+    slug: 'home-kitchen',
+    keywords: ['home', 'kitch', 'kitchen', 'cook', 'cookware', 'pan', 'pot', 'bedding', 'decor', 'furniture', 'knife', 'utensil'],
+  },
+  {
+    slug: 'groceries',
+    keywords: ['groc', 'grocery', 'groceries', 'staples', 'snack', 'snacks', 'beverage', 'tea', 'coffee', 'rice', 'dal', 'oil', 'atta', 'flour', 'spices', 'masala', 'biscuit'],
+  },
+  {
+    slug: 'fresh-market',
+    keywords: ['fresh', 'market', 'fru', 'fruit', 'fruits', 'veg', 'vegetable', 'vegetables', 'apple', 'banana', 'mango', 'organic', 'herbs', 'greens'],
+  },
+  {
+    slug: 'beauty-pets',
+    keywords: ['beaut', 'beauty', 'skin', 'skincare', 'hair', 'haircare', 'serum', 'lotion', 'cream', 'perfume', 'fragrance', 'makeup', 'grooming', 'shampoo', 'pet', 'pets'],
+  },
+  {
+    slug: 'sports',
+    keywords: ['sport', 'sports', 'fit', 'fitness', 'gym', 'workout', 'yoga', 'dumbbell', 'running', 'exercise', 'cricket', 'badminton', 'football'],
+  },
+  {
+    slug: 'toys',
+    keywords: ['toy', 'toys', 'baby', 'babies', 'kid', 'kids', 'infant', 'doll', 'game', 'puzzle', 'lego', 'blocks', 'car'],
+  },
+  {
+    slug: 'books',
+    keywords: ['book', 'books', 'novel', 'novels', 'stationery', 'notebook', 'pen', 'pens', 'fiction', 'literature', 'read', 'art'],
+  },
+]
 
 export default function Navbar({ categories = [] }) {
   const {
@@ -92,6 +135,52 @@ export default function Navbar({ categories = [] }) {
 
     return () => clearTimeout(timer)
   }, [searchQ])
+
+  // Dynamic and keyword category matcher for all categories
+  const getMatchedCategories = (query) => {
+    const raw = String(query || '').trim().toLowerCase()
+    if (!raw || raw.length < 2) return []
+
+    const clean = raw.replace(/[^a-z0-9]+/g, ' ').trim()
+    const tokens = clean.split(/\s+/).filter(Boolean)
+
+    const matches = []
+    const seen = new Set()
+
+    for (const c of cats) {
+      const cSlug = String(c.slug || '').toLowerCase()
+      const cName = String(c.name || '').toLowerCase()
+
+      // Direct slug or name match
+      const directMatch =
+        cSlug.includes(raw) ||
+        raw.includes(cSlug) ||
+        cName.includes(raw) ||
+        tokens.some((t) => cSlug.includes(t) || cName.includes(t))
+
+      // Keyword / alias match
+      const mapEntry = CATEGORY_KEYWORD_MAP.find((entry) => entry.slug === cSlug)
+      const keywordMatch = mapEntry?.keywords.some((kw) => {
+        return (
+          raw === kw ||
+          kw.startsWith(raw) ||
+          raw.startsWith(kw) ||
+          tokens.some((t) => kw === t || kw.startsWith(t) || t.startsWith(kw))
+        )
+      })
+
+      if ((directMatch || keywordMatch) && !seen.has(cSlug)) {
+        seen.add(cSlug)
+        matches.push(c)
+      }
+    }
+
+    return matches
+  }
+
+  const matchedCategories = useMemo(() => {
+    return getMatchedCategories(searchQ)
+  }, [searchQ, cats])
 
   // Click / tap outside to close search suggestions
   useEffect(() => {
@@ -286,11 +375,38 @@ export default function Navbar({ categories = [] }) {
   const handleSearch = (e) => {
     if (e) e.preventDefault()
     const query = searchQ.trim()
-    if (query) {
-      setShowSuggestions(false)
-      setOpen(false)
-      navigate(`/search?q=${encodeURIComponent(query)}`)
+    if (!query) return
+
+    setShowSuggestions(false)
+    setOpen(false)
+
+    // Unambiguous category check:
+    // If the query matches a single category via keyword or slug/name
+    const matches = getMatchedCategories(query)
+    const normalized = query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const tokens = normalized.split(/\s+/).filter(Boolean)
+    const isSingleOrPair = tokens.length <= 2
+
+    const isExplicitCatKeyword =
+      CATEGORY_KEYWORD_MAP.some((entry) =>
+        entry.keywords.some((kw) => kw === normalized || normalized.startsWith(kw) || kw.startsWith(normalized))
+      ) ||
+      cats.some((c) => {
+        const cSlug = String(c.slug || '').toLowerCase()
+        const cName = String(c.name || '').toLowerCase()
+        return (
+          cSlug === normalized ||
+          cName.includes(normalized) ||
+          tokens.every((t) => cName.includes(t) || cSlug.includes(t))
+        )
+      })
+
+    if (matches.length === 1 && isSingleOrPair && isExplicitCatKeyword) {
+      navigate(`/c/${matches[0].slug}`)
+      return
     }
+
+    navigate(`/search?q=${encodeURIComponent(query)}`)
   }
 
   const handleSelectSuggestion = (productId) => {
@@ -394,6 +510,45 @@ export default function Navbar({ categories = [] }) {
               isMobile ? 'top-11 max-h-[72vh] overflow-y-auto' : 'top-12'
             }`}
           >
+            {/* Matching Category Suggestions */}
+            {matchedCategories.length > 0 && (
+              <div className="border-b border-slate-100 bg-slate-50/70 p-2 dark:border-slate-800/80 dark:bg-slate-900/40">
+                <div className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Categories
+                </div>
+                <div className="space-y-1">
+                  {matchedCategories.map((c) => (
+                    <div
+                      key={c._id || c.slug}
+                      onClick={() => {
+                        setShowSuggestions(false)
+                        setOpen(false)
+                        navigate(`/c/${c.slug}`)
+                      }}
+                      className="flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition hover:bg-white dark:hover:bg-white/10"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime/20 text-xs font-bold text-navy dark:text-lime">
+                          📁
+                        </span>
+                        <div className="truncate">
+                          <span className="text-xs font-bold text-navy dark:text-white">
+                            {c.name}
+                          </span>
+                          <span className="ml-2 text-[10px] text-slate-400">
+                            Explore Category
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-lime-600 dark:text-lime hover:underline">
+                        View Category →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {isSearching && suggestions.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500 dark:text-slate-400">
                 <Loader2 className="h-4 w-4 animate-spin text-lime-600 dark:text-lime" />
@@ -452,7 +607,7 @@ export default function Navbar({ categories = [] }) {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : matchedCategories.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
                 <p className="font-semibold text-navy dark:text-white">
                   No products found for "{searchQ.trim()}"
@@ -461,7 +616,7 @@ export default function Navbar({ categories = [] }) {
                   Press Enter to see all search options or explore categories
                 </p>
               </div>
-            )}
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>

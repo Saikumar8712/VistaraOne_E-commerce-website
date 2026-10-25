@@ -14,91 +14,112 @@ export const resolveCategory = async (catStr) => {
   }
   const clean = catStr.toLowerCase().trim()
   const aliases = {
-    // Mobiles & Electronics
+    // Mobiles & Electronics (full and partial words)
     mobiles: 'electronics',
     mobile: 'electronics',
+    mobi: 'electronics',
+    mob: 'electronics',
     smartphones: 'electronics',
     smartphone: 'electronics',
+    smartph: 'electronics',
     phone: 'electronics',
     phones: 'electronics',
+    phon: 'electronics',
     laptops: 'electronics',
     laptop: 'electronics',
+    lap: 'electronics',
+    lapt: 'electronics',
     computers: 'electronics',
     computer: 'electronics',
+    comp: 'electronics',
     'electronics-accessories': 'electronics',
     electronic: 'electronics',
     electronics: 'electronics',
+    elec: 'electronics',
     audio: 'electronics',
     headphones: 'electronics',
     earbuds: 'electronics',
 
-    // Fashion & Lifestyle
+    // Fashion & Lifestyle (full and partial words)
     'fashion-clothing': 'fashion',
     clothing: 'fashion',
     clothes: 'fashion',
+    cloth: 'fashion',
     fashion: 'fashion',
+    fash: 'fashion',
     shoes: 'fashion',
     shoe: 'fashion',
     footwear: 'fashion',
     sneakers: 'fashion',
+    sneaker: 'fashion',
     watches: 'fashion',
     watch: 'fashion',
 
-    // Appliances
+    // Appliances (full and partial words)
     'home-appliances': 'appliances',
     appliances: 'appliances',
     appliance: 'appliances',
+    appli: 'appliances',
     tv: 'appliances',
     tvs: 'appliances',
     refrigerator: 'appliances',
     fridge: 'appliances',
     'washing-machine': 'appliances',
 
-    // Home & Kitchen
+    // Home & Kitchen (full and partial words)
     'home-kitchen': 'home-kitchen',
     kitchen: 'home-kitchen',
+    kitch: 'home-kitchen',
     cookware: 'home-kitchen',
+    cook: 'home-kitchen',
 
-    // Groceries
+    // Groceries (full and partial words)
     'grocery-essentials': 'groceries',
     grocery: 'groceries',
     groceries: 'groceries',
+    groc: 'groceries',
     staples: 'groceries',
 
-    // Fresh Market
+    // Fresh Market (full and partial words)
     fruits: 'fresh-market',
     fruit: 'fresh-market',
+    fru: 'fresh-market',
     fresh: 'fresh-market',
     vegetables: 'fresh-market',
     vegetable: 'fresh-market',
     veggies: 'fresh-market',
+    veg: 'fresh-market',
+    vegg: 'fresh-market',
 
-    // Beauty & Personal Care
+    // Beauty & Personal Care (full and partial words)
     'beauty-personal-care': 'beauty-pets',
     'beauty-pets': 'beauty-pets',
     beauty: 'beauty-pets',
+    beaut: 'beauty-pets',
     skincare: 'beauty-pets',
     cosmetics: 'beauty-pets',
 
-    // Sports & Fitness
+    // Sports & Fitness (full and partial words)
     sports: 'sports',
     sport: 'sports',
     fitness: 'sports',
+    fit: 'sports',
     gym: 'sports',
     yoga: 'sports',
 
-    // Toys & Baby Care
+    // Toys & Baby Care (full and partial words)
     toys: 'toys',
     toy: 'toys',
     baby: 'toys',
     kids: 'toys',
     games: 'toys',
 
-    // Books & Stationery
+    // Books & Stationery (full and partial words)
     books: 'books',
     book: 'books',
     stationery: 'books',
     novels: 'books',
+    novel: 'books',
   }
   const targetSlug = aliases[clean] || clean
   return await Category.findOne({
@@ -107,6 +128,7 @@ export const resolveCategory = async (catStr) => {
       { slug: targetSlug },
       { name: new RegExp(`^${clean.replace(/-/g, ' ')}$`, 'i') },
       { name: new RegExp(`${clean.replace(/-/g, ' ')}`, 'i') },
+      { slug: new RegExp(`^${clean}`, 'i') },
     ],
   }).lean()
 }
@@ -284,25 +306,54 @@ export const getProducts = async (req, res, next) => {
         const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : []
         const brandLower = (p.brand || '').toLowerCase()
 
+        // Name starts with or contains search term
         if (nameLower.startsWith(qLower)) score += 120
         else if (nameLower.includes(qLower)) score += 80
 
-        if (['mobile', 'mobiles', 'smartphone', 'smartphones', 'phone', 'phones'].includes(qLower)) {
-          if (['galaxy', 'iphone', 'oneplus', 'pixel', 'redmi', 'vivo', 'realme', 'motorola', 'poco', 'smartphone', '5g'].some((m) => nameLower.includes(m))) {
-            score += 90
+        // Individual words in title matching search term
+        const words = nameLower.split(/\s+/)
+        if (words.some((w) => w.startsWith(qLower))) score += 70
+
+        // Mobiles & Smartphones partial & full matching
+        if (
+          ['mobile', 'mobiles', 'smartphone', 'smartphones', 'phone', 'phones'].includes(qLower) ||
+          'mobile'.startsWith(qLower) ||
+          'smartphones'.startsWith(qLower) ||
+          qLower.startsWith('mobi') ||
+          qLower.startsWith('phon')
+        ) {
+          if (['galaxy', 'iphone', 'oneplus', 'pixel', 'redmi', 'vivo', 'realme', 'motorola', 'poco', 'smartphone', '5g', 'ultra', 'pro max'].some((m) => nameLower.includes(m))) {
+            score += 100
           }
-          if (tags.includes('smartphone') || tags.includes('mobile')) score += 60
+          if (tags.some((t) => t.includes('smartphone') || t.includes('mobile'))) score += 60
         }
 
-        if (['fruit', 'fruits'].includes(qLower)) {
+        // Fruits / Fresh Produce partial & full matching
+        if (
+          ['fruit', 'fruits'].includes(qLower) ||
+          'fruits'.startsWith(qLower) ||
+          qLower.startsWith('fru')
+        ) {
           if (['mango', 'apple', 'banana', 'orange', 'grape', 'berry', 'strawberry', 'kiwi', 'pomegranate', 'avocado', 'papaya', 'watermelon', 'melon', 'pineapple', 'guava', 'fig'].some((f) => nameLower.includes(f))) {
-            score += 90
+            score += 100
           }
-          if (tags.includes('fruits') || tags.includes('fruit')) score += 60
+          if (tags.some((t) => t.includes('fruits') || t.includes('fruit'))) score += 60
         }
 
-        if (tags.some((t) => t.includes(qLower))) score += 40
-        if (brandLower.includes(qLower)) score += 30
+        // Laptops & Computers partial & full matching
+        if (
+          ['laptop', 'laptops', 'computer', 'computers'].includes(qLower) ||
+          'laptops'.startsWith(qLower) ||
+          qLower.startsWith('lap')
+        ) {
+          if (['macbook', 'thinkpad', 'zenbook', 'yoga', 'inspiron', 'ideapad', 'laptop', 'intel', 'ryzen', 'hp', 'dell', 'lenovo', 'asus'].some((l) => nameLower.includes(l))) {
+            score += 100
+          }
+          if (tags.some((t) => t.includes('laptop') || t.includes('computer'))) score += 60
+        }
+
+        if (tags.some((t) => t.startsWith(qLower) || t.includes(qLower))) score += 40
+        if (brandLower.startsWith(qLower) || brandLower.includes(qLower)) score += 30
         if (resolvedCatId && String(p.category?._id || p.category) === String(resolvedCatId)) score += 35
 
         return score
