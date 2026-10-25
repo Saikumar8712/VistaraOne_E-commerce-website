@@ -3,18 +3,21 @@ import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react'
 import ProductCard from './ProductCard'
 import { getCategoryProducts } from '../services/api'
 
+const EMPTY_LIST = []
+
 export default function ProductHorizontalRow({
   title,
   sub,
   categorySlug = null,
-  initialItems = [],
+  initialItems = null,
   icon: Icon = null,
 }) {
-  const [items, setItems] = useState(initialItems)
+  const [items, setItems] = useState(() => initialItems || EMPTY_LIST)
   const [page, setPage] = useState(1)
   const [hasNextPage, setHasNextPage] = useState(true)
-  const [loading, setLoading] = useState(initialItems.length === 0 && Boolean(categorySlug))
+  const [loading, setLoading] = useState(() => !initialItems && Boolean(categorySlug))
   const [loadingMore, setLoadingMore] = useState(false)
+  const fetchedSlugRef = useRef(null)
 
   // Scroll boundary state
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -26,18 +29,17 @@ export default function ProductHorizontalRow({
   const scrollLeftStart = useRef(0)
   const hasDragged = useRef(false)
 
-  // Initial load if categorySlug is provided and no initialItems
+  // Sync initialItems when provided directly (e.g. Deals, Trending)
   useEffect(() => {
-    if (initialItems.length > 0) {
+    if (initialItems && initialItems.length > 0) {
       setItems(initialItems)
       setLoading(false)
-      return
     }
+  }, [initialItems])
 
-    if (!categorySlug) {
-      setLoading(false)
-      return
-    }
+  // Initial load if categorySlug is provided (only fetch once per categorySlug)
+  useEffect(() => {
+    if (initialItems || !categorySlug) return
 
     let isMounted = true
     async function loadCategoryItems() {
@@ -63,21 +65,23 @@ export default function ProductHorizontalRow({
     return () => {
       isMounted = false
     }
-  }, [categorySlug, initialItems])
+  }, [categorySlug])
 
   // Update scroll arrow boundaries
   const updateScrollBounds = useCallback(() => {
     if (!scrollRef.current) return
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-    setCanScrollLeft(scrollLeft > 15)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 25)
+    const nextLeft = scrollLeft > 15
+    const nextRight = scrollLeft < scrollWidth - clientWidth - 25
+    setCanScrollLeft((prev) => (prev !== nextLeft ? nextLeft : prev))
+    setCanScrollRight((prev) => (prev !== nextRight ? nextRight : prev))
   }, [])
 
   useEffect(() => {
     updateScrollBounds()
     window.addEventListener('resize', updateScrollBounds)
     return () => window.removeEventListener('resize', updateScrollBounds)
-  }, [items, updateScrollBounds])
+  }, [items.length, updateScrollBounds])
 
   // Reveal more products from the same category on scrolling right
   const loadNextPage = useCallback(async () => {

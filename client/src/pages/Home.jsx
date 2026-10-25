@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import * as Icons from 'lucide-react'
@@ -27,7 +27,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { showToast, allCategories } = useShop()
 
-  const [cats, setCats] = useState(allCategories || [])
+  const [cats, setCats] = useState(() => allCategories || [])
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -62,10 +62,10 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    if (allCategories?.length) {
+    if (allCategories?.length && !cats.length) {
       setCats(allCategories)
     }
-  }, [allCategories])
+  }, [allCategories, cats.length])
 
   const handleSubscribe = (e) => {
     e.preventDefault()
@@ -81,30 +81,42 @@ export default function Home() {
     [Headphones, '24/7 Support', 'Dedicated Indian customer care team'],
   ]
 
-  // Dynamic collections from real server data
-  const dealsList = products
-    .filter((p) => p.originalPrice && p.originalPrice > p.price)
-    .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0))
+  // Memoized collections to prevent unnecessary child re-renders
+  const dealsList = useMemo(
+    () =>
+      products
+        .filter((p) => p.originalPrice && p.originalPrice > p.price)
+        .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0)),
+    [products]
+  )
 
-  const trendingList = products
-    .filter((p) => p.isBestseller || (p.reviewCount && p.reviewCount > 100))
-    .sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0))
+  const trendingList = useMemo(
+    () =>
+      products
+        .filter((p) => p.isBestseller || (p.reviewCount && p.reviewCount > 100))
+        .sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0)),
+    [products]
+  )
 
   // Deduplicate categories by lowercase name to ensure clean section display
-  const distinctCategories = Array.from(
-    cats.reduce((map, cat) => {
-      const key = (cat.name || '').trim().toLowerCase()
-      if (!key) return map
-      if (!map.has(key)) {
-        map.set(key, cat)
-      } else {
-        const existing = map.get(key)
-        if ((cat.productCount || 0) > (existing.productCount || 0)) {
-          map.set(key, cat)
-        }
-      }
-      return map
-    }, new Map()).values()
+  const distinctCategories = useMemo(
+    () =>
+      Array.from(
+        cats.reduce((map, cat) => {
+          const key = (cat.name || '').trim().toLowerCase()
+          if (!key) return map
+          if (!map.has(key)) {
+            map.set(key, cat)
+          } else {
+            const existing = map.get(key)
+            if ((cat.productCount || 0) > (existing.productCount || 0)) {
+              map.set(key, cat)
+            }
+          }
+          return map
+        }, new Map()).values()
+      ),
+    [cats]
   )
 
   return (
