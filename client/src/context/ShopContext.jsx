@@ -288,8 +288,14 @@ export function ShopProvider({ children }) {
         'grocery-essentials': 'groceries',
         grocery: 'groceries',
         'beauty-pets': 'beauty-personal-care',
-        beauty: 'beauty-personal-care',
         watches: 'watches-accessories',
+        boys: 'boys-girls-fashion',
+        girls: 'boys-girls-fashion',
+        'boys-fashion': 'boys-girls-fashion',
+        'girls-fashion': 'boys-girls-fashion',
+        'baby-boy': 'baby-boys-fashion',
+        'baby-boys': 'baby-boys-fashion',
+        'boy-baby': 'baby-boys-fashion',
       }
       const target = aliases[s] || s
       return (

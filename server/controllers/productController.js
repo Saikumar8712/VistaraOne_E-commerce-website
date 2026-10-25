@@ -55,6 +55,32 @@ export const resolveCategory = async (catStr) => {
     watches: 'fashion',
     watch: 'fashion',
 
+    // Boys & Girls Fashion (full and partial words)
+    'boys-girls-fashion': 'boys-girls-fashion',
+    boys: 'boys-girls-fashion',
+    boy: 'boys-girls-fashion',
+    girls: 'boys-girls-fashion',
+    girl: 'boys-girls-fashion',
+    'boys-fashion': 'boys-girls-fashion',
+    'girls-fashion': 'boys-girls-fashion',
+    'kids-fashion': 'boys-girls-fashion',
+    teen: 'boys-girls-fashion',
+    teens: 'boys-girls-fashion',
+    youth: 'boys-girls-fashion',
+
+    // Baby Boys Collection (full and partial words)
+    'baby-boys-fashion': 'baby-boys-fashion',
+    'baby-boys': 'baby-boys-fashion',
+    'baby-boy': 'baby-boys-fashion',
+    'boy-baby': 'baby-boys-fashion',
+    'baby-boy-fashion': 'baby-boys-fashion',
+    'infant-boy': 'baby-boys-fashion',
+    'toddler-boy': 'baby-boys-fashion',
+    romper: 'baby-boys-fashion',
+    rompers: 'baby-boys-fashion',
+    dungaree: 'baby-boys-fashion',
+    dungarees: 'baby-boys-fashion',
+
     // Appliances (full and partial words)
     'home-appliances': 'appliances',
     appliances: 'appliances',

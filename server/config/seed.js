@@ -22,6 +22,8 @@ import { generateFreshMarket } from '../scripts/data/freshMarket.js'
 import { generateSports } from '../scripts/data/sports.js'
 import { generateToys } from '../scripts/data/toys.js'
 import { generateBooks } from '../scripts/data/books.js'
+import { generateYouthFashion } from '../scripts/data/youthFashion.js'
+import { generateBabyBoys } from '../scripts/data/babyBoys.js'
 
 const img = (id) => `https://images.unsplash.com/${id}?w=800&auto=format&fit=crop&q=80`
 
@@ -45,12 +47,30 @@ export const categoriesData = [
     isFeatured: true,
   },
   {
+    name: 'Boys & Girls Fashion',
+    slug: 'boys-girls-fashion',
+    icon: 'Users',
+    image: img('photo-1503919545889-aef636e10ad4'),
+    description: 'Trendy New Fashion Clothes for Boys & Girls (Sizes S to XXL)',
+    order: 3,
+    isFeatured: true,
+  },
+  {
+    name: 'Baby Boys Collection',
+    slug: 'baby-boys-fashion',
+    icon: 'Baby',
+    image: img('photo-1522771930-78848d9293e8'),
+    description: 'Cute New Fashion Sets, Rompers & Suits Exclusively for Baby Boys',
+    order: 4,
+    isFeatured: true,
+  },
+  {
     name: 'Appliances',
     slug: 'appliances',
     icon: 'Tv',
     image: img('photo-1583863788434-e58a36330cf0'),
     description: 'Smart TVs, Air Conditioners, Refrigerators, and Microwaves',
-    order: 3,
+    order: 5,
     isFeatured: true,
   },
   {
@@ -59,7 +79,7 @@ export const categoriesData = [
     icon: 'CookingPot',
     image: img('photo-1556909114-f6e7ad7d3136'),
     description: 'Cookware, Kitchen Appliances, Bedding, and Home Decor',
-    order: 4,
+    order: 6,
     isFeatured: true,
   },
   {
@@ -68,7 +88,7 @@ export const categoriesData = [
     icon: 'ShoppingBasket',
     image: img('photo-1542838132-92c53300491e'),
     description: 'Staples, Snacks, Beverages, Gourmet, and Household Essentials',
-    order: 5,
+    order: 7,
     isFeatured: true,
   },
   {
@@ -77,7 +97,7 @@ export const categoriesData = [
     icon: 'Apple',
     image: img('photo-1610832958506-aa56368176cf'),
     description: 'Farm-Fresh Fruits, Organic Vegetables, and Fresh Herbs',
-    order: 6,
+    order: 8,
     isFeatured: true,
   },
   {
@@ -86,7 +106,7 @@ export const categoriesData = [
     icon: 'Sparkles',
     image: img('photo-1556228578-0d85b1a4d571'),
     description: 'Skincare, Haircare, Perfumes, and Grooming Essentials',
-    order: 7,
+    order: 9,
     isFeatured: true,
   },
   {
@@ -95,7 +115,7 @@ export const categoriesData = [
     icon: 'Dumbbell',
     image: img('photo-1517838277536-f5f99be501cd'),
     description: 'Gym Equipment, Yoga Mats, Running Gear, and Sports Accessories',
-    order: 8,
+    order: 10,
     isFeatured: true,
   },
   {
@@ -104,7 +124,7 @@ export const categoriesData = [
     icon: 'Blocks',
     image: img('photo-1596461404969-9ae70f2830c1'),
     description: 'Educational Toys, Remote Control Cars, and Infant Care',
-    order: 9,
+    order: 11,
     isFeatured: false,
   },
   {
@@ -113,7 +133,7 @@ export const categoriesData = [
     icon: 'BookOpen',
     image: img('photo-1544716278-ca5e3f4abd8c'),
     description: 'Bestselling Novels, Notebooks, Fountain Pens, and Art Supplies',
-    order: 10,
+    order: 12,
     isFeatured: false,
   },
 ]
@@ -206,7 +226,19 @@ export async function runSeed() {
     allProducts.push(...fashItems)
     console.log(`   • [fashion] -> ${fashItems.length} products`)
 
-    // 3. Appliances (105 items)
+    // 3. Boys & Girls Fashion (105 items)
+    const ythId = categoryMap['boys-girls-fashion']
+    const ythItems = expandTo100Plus(generateYouthFashion(ythId), 'YTH', ythId, 105)
+    allProducts.push(...ythItems)
+    console.log(`   • [boys-girls-fashion] -> ${ythItems.length} products`)
+
+    // 4. Baby Boys Collection (105 items)
+    const bbyId = categoryMap['baby-boys-fashion']
+    const bbyItems = expandTo100Plus(generateBabyBoys(bbyId), 'BBY', bbyId, 105)
+    allProducts.push(...bbyItems)
+    console.log(`   • [baby-boys-fashion] -> ${bbyItems.length} products`)
+
+    // 5. Appliances (105 items)
     const appId = categoryMap['appliances']
     const appItems = expandTo100Plus(generateAppliances(appId), 'APP', appId, 105)
     allProducts.push(...appItems)

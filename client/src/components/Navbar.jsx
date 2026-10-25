@@ -34,6 +34,14 @@ const CATEGORY_KEYWORD_MAP = [
     keywords: ['fash', 'fashion', 'cloth', 'clothes', 'clothing', 'apparel', 'shirt', 'tshirt', 'jeans', 'dress', 'footwear', 'shoes', 'sneakers', 'wear', 'men', 'women'],
   },
   {
+    slug: 'boys-girls-fashion',
+    keywords: ['boys', 'girls', 'boy', 'girl', 'teen', 'teens', 'youth', 'kids fashion', 'boys fashion', 'girls fashion', 'dress', 'frock', 'hoodie', 'skirt'],
+  },
+  {
+    slug: 'baby-boys-fashion',
+    keywords: ['baby boy', 'baby boys', 'boy baby', 'infant boy', 'toddler boy', 'romper', 'rompers', 'dungaree', 'dungarees', 'baby suit'],
+  },
+  {
     slug: 'appliances',
     keywords: ['appli', 'appliance', 'appliances', 'tv', 'television', 'fridge', 'refrigerator', 'ac', 'air conditioner', 'cooler', 'washing machine', 'microwave', 'oven', 'geyser', 'heater'],
   },

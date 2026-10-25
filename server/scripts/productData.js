@@ -171,6 +171,30 @@ export const imagePools = {
     img('photo-1524995997946-a1c2e315a42f'),
     img('photo-1457369804613-52c61a468e7d'),
   ],
+  youthFashion: [
+    img('photo-1503919545889-aef636e10ad4'),
+    img('photo-1519457431-44ccd64a579b'),
+    img('photo-1622290291468-a28f7a7dc6a8'),
+    img('photo-1519238263530-99bdd11df2ea'),
+    img('photo-1508214751196-bcfd4ca60f91'),
+    img('photo-1471286174890-9c112ffca56a'),
+    img('photo-1516627145497-ae6968895b74'),
+    img('photo-1514090458221-65bb69cf63e6'),
+    img('photo-1596870230751-ebdfce98ec42'),
+    img('photo-1529156069898-49953e39b3ac'),
+  ],
+  babyBoys: [
+    img('photo-1522771930-78848d9293e8'),
+    img('photo-1515488042361-ee00e0ddd4e4'),
+    img('photo-1544126592-807ade215a0b'),
+    img('photo-1503454537195-1dcabb73ffb9'),
+    img('photo-1519689680058-324335c77eba'),
+    img('photo-1543332164-6e82f355badc'),
+    img('photo-1555252333-9f8e92e65df9'),
+    img('photo-1516627145497-ae6968895b74'),
+    img('photo-1566576912321-d58ddd7a6088'),
+    img('photo-1596870230751-ebdfce98ec42'),
+  ],
 }
 
 // 10 Required Categories Metadata
