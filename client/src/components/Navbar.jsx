@@ -62,6 +62,7 @@ export default function Navbar({ categories = [] }) {
   const [isSearching, setIsSearching] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchContainerRef = useRef(null)
+  const mobileSearchRef = useRef(null)
 
   // Live autocomplete search query with 220ms debounce
   useEffect(() => {
@@ -92,18 +93,21 @@ export default function Navbar({ categories = [] }) {
     return () => clearTimeout(timer)
   }, [searchQ])
 
-  // Click outside to close search suggestions
+  // Click / tap outside to close search suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target)
-      ) {
+      const inDesktop = searchContainerRef.current?.contains(event.target)
+      const inMobile = mobileSearchRef.current?.contains(event.target)
+      if (!inDesktop && !inMobile) {
         setShowSuggestions(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   // Category horizontal scroll ref
@@ -304,6 +308,166 @@ export default function Navbar({ categories = [] }) {
   const locationSummary = deliveryLocation?.area || deliveryLocation?.city || 'Delivery Area'
   const locationPincode = deliveryLocation?.pincode || '500001'
 
+  // Render unified Search Input & Suggestions (used for both desktop and mobile)
+  const renderSearchInput = (isMobile = false) => (
+    <div
+      ref={isMobile ? mobileSearchRef : searchContainerRef}
+      className={`relative ${
+        isMobile ? 'w-full' : 'mx-2 hidden flex-1 max-w-xl md:block'
+      }`}
+    >
+      <form onSubmit={handleSearch} className="relative" role="search">
+        <input
+          value={searchQ}
+          onChange={(e) => {
+            setSearchQ(e.target.value)
+            setShowSuggestions(true)
+          }}
+          onFocus={() => {
+            if (searchQ.trim().length >= 2) {
+              setShowSuggestions(true)
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowSuggestions(false)
+            }
+          }}
+          aria-label={isMobile ? 'Search products on mobile' : 'Search products'}
+          placeholder={
+            isMobile
+              ? 'Search 570+ products, mobiles, groceries…'
+              : 'Search for Mobiles, Electronics, Fashion, Cookware, Groceries…'
+          }
+          className={`w-full rounded-xl border border-white/10 bg-white text-navy shadow-inner focus:outline-none focus:ring-2 focus:ring-lime ${
+            isMobile
+              ? 'py-2 pl-9 pr-16 text-xs font-medium placeholder:text-slate-400'
+              : 'py-2.5 pl-4 pr-20 text-xs font-medium'
+          }`}
+        />
+
+        {isMobile && (
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        )}
+
+        {/* Clear Button (X) */}
+        {searchQ.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearSearch}
+            className={`absolute top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-navy transition ${
+              isMobile ? 'right-9' : 'right-10'
+            }`}
+            aria-label="Clear search"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {/* Search Submit Button */}
+        <button
+          type="submit"
+          className={`absolute rounded-lg bg-lime text-navy transition hover:bg-[#a5e354] active:scale-95 ${
+            isMobile
+              ? 'right-1 top-1 grid h-7 w-7 place-items-center'
+              : 'right-1 top-1 grid h-8 w-8 place-items-center'
+          }`}
+          aria-label="Search"
+        >
+          {isSearching ? (
+            <Loader2 className={`${isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} animate-spin text-navy`} />
+          ) : (
+            <Search className={isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          )}
+        </button>
+      </form>
+
+      {/* Autocomplete Suggestions Dropdown */}
+      <AnimatePresence>
+        {showSuggestions && searchQ.trim().length >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className={`absolute left-0 right-0 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#131d31] ${
+              isMobile ? 'top-11 max-h-[72vh] overflow-y-auto' : 'top-12'
+            }`}
+          >
+            {isSearching && suggestions.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin text-lime-600 dark:text-lime" />
+                <span>Searching catalog for "{searchQ.trim()}"…</span>
+              </div>
+            ) : suggestions.length > 0 ? (
+              <div className="py-2">
+                <div className="px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Product Suggestions
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {suggestions.map((item) => (
+                    <div
+                      key={item._id}
+                      onClick={() => handleSelectSuggestion(item._id)}
+                      className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/5"
+                    >
+                      <img
+                        src={
+                          item.images?.[0] ||
+                          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100'
+                        }
+                        alt={item.name}
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover bg-slate-100 dark:bg-slate-800"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h4 className="truncate text-xs font-bold text-navy dark:text-white">
+                          {item.name}
+                        </h4>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          {item.brand && <span>{item.brand}</span>}
+                          {item.brand && <span>•</span>}
+                          <span className="capitalize">{item.category}</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-extrabold text-navy dark:text-lime">
+                          ₹{item.price?.toLocaleString('en-IN')}
+                        </span>
+                        {item.originalPrice && item.originalPrice > item.price && (
+                          <div className="text-[10px] text-slate-400 line-through">
+                            ₹{item.originalPrice?.toLocaleString('en-IN')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 px-3.5 py-2 text-center dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    className="text-xs font-bold text-navy hover:text-lime-600 dark:text-lime dark:hover:underline"
+                  >
+                    View all results for "{searchQ.trim()}" →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                <p className="font-semibold text-navy dark:text-white">
+                  No products found for "{searchQ.trim()}"
+                </p>
+                <p className="mt-1 text-[11px]">
+                  Press Enter to see all search options or explore categories
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+
   return (
     <header className="sticky top-0 z-50 bg-navy text-white shadow-xl dark:border-b dark:border-white/5">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-4">
@@ -500,135 +664,8 @@ export default function Navbar({ categories = [] }) {
           </AnimatePresence>
         </div>
 
-        {/* Global Search Bar with Live Suggestions Dropdown */}
-        <div ref={searchContainerRef} className="relative mx-2 hidden flex-1 max-w-xl md:block">
-          <form
-            onSubmit={handleSearch}
-            className="relative"
-            role="search"
-          >
-            <input
-              value={searchQ}
-              onChange={(e) => {
-                setSearchQ(e.target.value)
-                setShowSuggestions(true)
-              }}
-              onFocus={() => {
-                if (searchQ.trim().length >= 2) {
-                  setShowSuggestions(true)
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setShowSuggestions(false)
-                }
-              }}
-              aria-label="Search products"
-              placeholder="Search for Mobiles, Electronics, Fashion, Cookware, Groceries…"
-              className="w-full rounded-xl border-0 bg-white py-2.5 pl-4 pr-20 text-xs font-medium text-navy shadow-inner focus:outline-none focus:ring-2 focus:ring-lime"
-            />
-
-            {/* Clear Button (X) */}
-            {searchQ.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="absolute right-10 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-navy transition"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Search Submit Button */}
-            <button
-              type="submit"
-              className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-lg bg-lime text-navy transition hover:bg-[#a5e354]"
-              aria-label="Search"
-            >
-              {isSearching ? (
-                <Loader2 className="h-4 w-4 animate-spin text-navy" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </button>
-          </form>
-
-          {/* Autocomplete Suggestions Dropdown */}
-          <AnimatePresence>
-            {showSuggestions && searchQ.trim().length >= 2 && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                transition={{ duration: 0.15 }}
-                className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#131d31]"
-              >
-                {isSearching && suggestions.length === 0 ? (
-                  <div className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500 dark:text-slate-400">
-                    <Loader2 className="h-4 w-4 animate-spin text-lime-600 dark:text-lime" />
-                    <span>Searching catalog for "{searchQ.trim()}"…</span>
-                  </div>
-                ) : suggestions.length > 0 ? (
-                  <div className="py-2">
-                    <div className="px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Product Suggestions
-                    </div>
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                      {suggestions.map((item) => (
-                        <div
-                          key={item._id}
-                          onClick={() => handleSelectSuggestion(item._id)}
-                          className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/5"
-                        >
-                          <img
-                            src={item.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100'}
-                            alt={item.name}
-                            className="h-10 w-10 shrink-0 rounded-lg object-cover bg-slate-100 dark:bg-slate-800"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="truncate text-xs font-bold text-navy dark:text-white">
-                              {item.name}
-                            </h4>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                              {item.brand && <span>{item.brand}</span>}
-                              {item.brand && <span>•</span>}
-                              <span className="capitalize">{item.category}</span>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-xs font-extrabold text-navy dark:text-lime">
-                              ₹{item.price?.toLocaleString('en-IN')}
-                            </span>
-                            {item.originalPrice && item.originalPrice > item.price && (
-                              <div className="text-[10px] text-slate-400 line-through">
-                                ₹{item.originalPrice?.toLocaleString('en-IN')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-slate-100 px-3.5 py-2 text-center dark:border-slate-800">
-                      <button
-                        type="button"
-                        onClick={handleSearch}
-                        className="text-xs font-bold text-navy hover:text-lime-600 dark:text-lime dark:hover:underline"
-                      >
-                        View all results for "{searchQ.trim()}" →
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                    <p className="font-semibold text-navy dark:text-white">No products found for "{searchQ.trim()}"</p>
-                    <p className="mt-1 text-[11px]">Press Enter to see all search options or explore categories</p>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Global Search Bar with Live Suggestions Dropdown (Desktop) */}
+        {renderSearchInput(false)}
 
         {/* Right Navigation Icons */}
         <nav className="ml-auto flex items-center gap-3 sm:gap-4">
@@ -692,6 +729,11 @@ export default function Navbar({ categories = [] }) {
         </nav>
       </div>
 
+      {/* Dedicated Mobile Search Bar Row (Always visible on mobile screens) */}
+      <div className="border-t border-white/10 bg-navy-800/90 px-4 py-2.5 md:hidden">
+        {renderSearchInput(true)}
+      </div>
+
       {/* Categories Sub-nav on Desktop with sleek Arrow Navigation and ZERO white scrollbar */}
       {cats.length > 0 && (
         <div className="relative hidden border-t border-white/10 bg-navy-800/60 backdrop-blur-sm lg:block">
@@ -748,32 +790,6 @@ export default function Navbar({ categories = [] }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-white/10 bg-navy-800 px-4 py-3 lg:hidden"
           >
-            <form onSubmit={handleSearch} className="mb-3 relative flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  value={searchQ}
-                  onChange={(e) => setSearchQ(e.target.value)}
-                  placeholder="Search products…"
-                  className="w-full rounded-xl bg-white/10 px-3.5 py-2 pr-8 text-xs text-white placeholder-slate-400 focus:bg-white/20 focus:outline-none"
-                  aria-label="Search"
-                />
-                {searchQ.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearSearch}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <button
-                type="submit"
-                className="rounded-xl bg-lime px-3.5 text-xs font-black text-navy"
-              >
-                Go
-              </button>
-            </form>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 py-1">
               Browse Categories
             </div>
