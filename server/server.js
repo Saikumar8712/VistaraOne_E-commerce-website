@@ -47,11 +47,13 @@ app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true, limit: '2mb' }))
 
 // Rate limiting for API protection
+const isDev = process.env.NODE_ENV !== 'production'
 app.use(
   '/api',
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 600,
+    limit: isDev ? 50000 : 10000,
+    skip: (req) => isDev || req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === 'localhost',
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' },
