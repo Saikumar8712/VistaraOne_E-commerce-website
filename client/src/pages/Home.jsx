@@ -103,6 +103,12 @@ export default function Home() {
     loadHomeData()
   }, [])
 
+  useEffect(() => {
+    if (allCategories?.length) {
+      setCats(allCategories)
+    }
+  }, [allCategories])
+
   const handleSubscribe = (e) => {
     e.preventDefault()
     if (!email) return
@@ -179,8 +185,8 @@ export default function Home() {
           </motion.div>
 
           {/* Interactive Category Showcase Icons */}
-          <div className="grid grid-cols-3 gap-3">
-            {cats.slice(0, 6).map((c, i) => {
+          <div className="grid grid-cols-3 gap-3 max-h-[380px] overflow-y-auto scrollbar-none pr-1">
+            {cats.map((c, i) => {
               const I = c.icon && Icons[c.icon] ? Icons[c.icon] : Icons.Package
               return (
                 <motion.div
@@ -338,7 +344,7 @@ export default function Home() {
                 Top Categories
               </h4>
               <ul className="mt-3 space-y-2 text-xs text-slate-400">
-                {cats.slice(0, 5).map((c) => (
+                {cats.map((c) => (
                   <li key={c._id}>
                     <button
                       onClick={() => navigate(`/c/${c.slug}`)}
