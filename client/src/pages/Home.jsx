@@ -125,7 +125,7 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="bg-navy text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 pt-16 pb-14 md:grid-cols-2">
+        <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 pt-16 pb-16 md:pb-20 md:grid-cols-2">
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-lime/20 px-3.5 py-1 text-xs font-bold text-lime">
               <Sparkles className="h-3.5 w-3.5" />
@@ -158,7 +158,7 @@ export default function Home() {
           </motion.div>
 
           {/* Interactive Category Showcase Icons */}
-          <div className="grid grid-cols-3 gap-3 max-h-[380px] overflow-y-auto scrollbar-none pr-1">
+          <div className="grid grid-cols-3 gap-3 max-h-[390px] overflow-y-auto scrollbar-none pr-1 pb-6">
             {cats.map((c, i) => {
               const I = c.icon && Icons[c.icon] ? Icons[c.icon] : Icons.Package
               return (
