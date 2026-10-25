@@ -269,7 +269,17 @@ export const getProducts = async (req, res, next) => {
     }
 
     // Sorting map
-    const isDefaultSort = !req.query.sort
+    const hasExplicitNonRelevanceSort = [
+      'price-asc',
+      'price',
+      'price-desc',
+      '-price',
+      'rating',
+      '-rating',
+      'popularity',
+      '-reviewCount',
+    ].includes(req.query.sort)
+
     let sortOption = { createdAt: -1 }
     switch (sort) {
       case 'price-asc':
@@ -295,10 +305,106 @@ export const getProducts = async (req, res, next) => {
         break
     }
 
-    // When searching with a text query and without explicit price/rating sort, rank candidates by relevance
-    if (q && q.trim() && isDefaultSort) {
+    // When searching with a text query, rank candidates by 2-tier relevance
+    // (Primary items matching the search term come FIRST, followed by remaining items in that category)
+    if (q && q.trim() && !hasExplicitNonRelevanceSort) {
       const qLower = q.trim().toLowerCase()
       const resolvedCatId = filter.category ? String(filter.category) : null
+
+      const isActualMobile = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const t = (p.tags || []).map((x) => String(x).toLowerCase())
+        const exclusions = [
+          'headphone', 'headphones', 'earphone', 'earphones', 'earbuds', 'buds', 'neckband',
+          'headset', 'cable', 'charger', 'adapter', 'power bank', 'powerbank', 'case', 'cover',
+          'screen protector', 'tempered glass', 'watch', 'smartwatch', 'speaker', 'soundbar',
+          'laptop', 'macbook', 'thinkpad', 'vostro', 'katana', 'drive', 'flash drive', 'pen drive',
+          'ssd', 'mouse', 'keyboard', 'airpods', 'hub', 'dock', 'stand'
+        ]
+        if (exclusions.some((x) => n.includes(x))) return false
+        const phoneKeywords = [
+          'galaxy s', 'galaxy a', 'galaxy z', 'galaxy m', 'galaxy f',
+          'iphone', 'pixel', 'oneplus 12', 'oneplus open', 'oneplus nord',
+          'vivo', 'realme 12', 'realme gt', 'realme narzo', 'realme c',
+          'redmi', 'xiaomi 14', 'motorola edge', 'motorola g', 'motorola razr',
+          'poco', 'iqoo', 'nothing phone', 'lava agni', 'smartphone'
+        ]
+        const hasGb = /\b\d+\s*gb\b/i.test(n)
+        const has5g = /\b5g\b/i.test(n)
+        return phoneKeywords.some((k) => n.includes(k)) || ((hasGb || has5g) && (t.includes('smartphone') || t.includes('mobile')))
+      }
+
+      const isActualLaptop = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['bag', 'sleeve', 'backpack', 'mouse', 'keyboard', 'stand', 'cooler', 'adapter', 'charger', 'hub', 'dock', 'cable']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const laptopKeywords = ['macbook', 'thinkpad', 'zenbook', 'yoga', 'inspiron', 'ideapad', 'laptop', 'vostro', 'katana', 'surface laptop', 'vivobook', 'pavilion', 'legion', 'predator', 'gaming laptop']
+        return laptopKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualFruit = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['scrub', 'wash', 'face', 'shampoo', 'lotion', 'cream', 'juice', 'gel', 'soap', 'oil', 'spinach', 'potato', 'onion', 'tomato', 'carrot', 'broccoli', 'coriander', 'ginger', 'garlic', 'chilli', 'capsicum', 'cauliflower', 'cucumber', 'peas', 'beans', 'cabbage']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const fruitKeywords = ['apple', 'banana', 'mango', 'orange', 'grape', 'grapes', 'berry', 'strawberry', 'kiwi', 'pomegranate', 'avocado', 'papaya', 'watermelon', 'melon', 'pineapple', 'guava', 'fig', 'fruit', 'fruits', 'pitaya', 'dragon fruit', 'citrus', 'peaches', 'plums', 'mosambi', 'sapota', 'custard apple']
+        return fruitKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualVeg = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['apple', 'banana', 'mango', 'orange', 'grape', 'kiwi', 'papaya', 'watermelon', 'melon', 'pineapple', 'guava', 'dragon fruit', 'pitaya', 'fruit', 'fruits']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const vegKeywords = ['spinach', 'potato', 'onion', 'tomato', 'carrot', 'broccoli', 'coriander', 'ginger', 'garlic', 'chilli', 'capsicum', 'cauliflower', 'cucumber', 'peas', 'beans', 'cabbage', 'vegetable', 'vegetables', 'veggies', 'greens', 'mushroom', 'bhindi', 'okra', 'palak', 'methi', 'pudina']
+        return vegKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualFootwear = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['shirt', 't-shirt', 'tshirt', 'jeans', 'pant', 'trouser', 'jacket', 'hoodie', 'socks']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const footKeywords = ['shoe', 'shoes', 'sneaker', 'sneakers', 'footwear', 'boots', 'sandals', 'loafers', 'running shoes', 'slippers', 'flip flop', 'slides']
+        return footKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualWatch = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['strap', 'guard', 'charger', 'band replacement']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const watchKeywords = ['watch', 'watches', 'smartwatch', 'smartwatches', 'chronograph', 'analog watch', 'digital watch']
+        return watchKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualTV = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['remote', 'mount', 'stand', 'cable']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const tvKeywords = ['smart tv', 'television', 'led tv', 'oled tv', 'qled tv', 'bravia', 'google tv', 'android tv']
+        return tvKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualFridge = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const fridgeKeywords = ['refrigerator', 'fridge', 'single door', 'double door', 'side by side', 'frost free']
+        return fridgeKeywords.some((k) => n.includes(k))
+      }
+
+      const isActualBook = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['pen', 'pencil', 'notebook', 'diary', 'marker', 'eraser', 'sharpener', 'ruler', 'compass', 'geometry', 'bag']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const bookKeywords = ['book', 'novel', 'edition', 'paperback', 'hardcover', 'author', 'biography', 'fiction', 'non-fiction']
+        const t = (p.tags || []).map((x) => String(x).toLowerCase())
+        return bookKeywords.some((k) => n.includes(k)) || t.includes('book') || t.includes('novel')
+      }
+
+      const isActualToy = (p) => {
+        const n = (p.name || '').toLowerCase()
+        const exclusions = ['wipe', 'wipes', 'diaper', 'lotion', 'shampoo', 'cream', 'powder', 'soap']
+        if (exclusions.some((x) => n.includes(x))) return false
+        const toyKeywords = ['toy', 'toys', 'game', 'puzzle', 'lego', 'car', 'rc car', 'doll', 'action figure', 'blocks', 'board game', 'nerf']
+        const t = (p.tags || []).map((x) => String(x).toLowerCase())
+        return toyKeywords.some((k) => n.includes(k)) || t.includes('toy') || t.includes('toys')
+      }
 
       const calculateRelevance = (p) => {
         let score = 0
@@ -306,55 +412,132 @@ export const getProducts = async (req, res, next) => {
         const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : []
         const brandLower = (p.brand || '').toLowerCase()
 
-        // Name starts with or contains search term
-        if (nameLower.startsWith(qLower)) score += 120
-        else if (nameLower.includes(qLower)) score += 80
-
-        // Individual words in title matching search term
-        const words = nameLower.split(/\s+/)
-        if (words.some((w) => w.startsWith(qLower))) score += 70
-
-        // Mobiles & Smartphones partial & full matching
+        // Mobiles & Smartphones queries: ALL actual mobiles get Tier 1 (+100,000)
         if (
           ['mobile', 'mobiles', 'smartphone', 'smartphones', 'phone', 'phones'].includes(qLower) ||
           'mobile'.startsWith(qLower) ||
           'smartphones'.startsWith(qLower) ||
           qLower.startsWith('mobi') ||
-          qLower.startsWith('phon')
+          qLower.startsWith('phon') ||
+          qLower.startsWith('smartph')
         ) {
-          if (['galaxy', 'iphone', 'oneplus', 'pixel', 'redmi', 'vivo', 'realme', 'motorola', 'poco', 'smartphone', '5g', 'ultra', 'pro max'].some((m) => nameLower.includes(m))) {
-            score += 100
+          if (isActualMobile(p)) {
+            score += 100000
           }
-          if (tags.some((t) => t.includes('smartphone') || t.includes('mobile'))) score += 60
         }
 
-        // Fruits / Fresh Produce partial & full matching
+        // Laptops & Computers queries: ALL actual laptops get Tier 1 (+100,000)
+        if (
+          ['laptop', 'laptops', 'computer', 'computers'].includes(qLower) ||
+          'laptops'.startsWith(qLower) ||
+          qLower.startsWith('lap') ||
+          qLower.startsWith('comp')
+        ) {
+          if (isActualLaptop(p)) {
+            score += 100000
+          }
+        }
+
+        // Fruits queries: ALL actual fruits get Tier 1 (+100,000)
         if (
           ['fruit', 'fruits'].includes(qLower) ||
           'fruits'.startsWith(qLower) ||
           qLower.startsWith('fru')
         ) {
-          if (['mango', 'apple', 'banana', 'orange', 'grape', 'berry', 'strawberry', 'kiwi', 'pomegranate', 'avocado', 'papaya', 'watermelon', 'melon', 'pineapple', 'guava', 'fig'].some((f) => nameLower.includes(f))) {
-            score += 100
+          if (isActualFruit(p)) {
+            score += 100000
           }
-          if (tags.some((t) => t.includes('fruits') || t.includes('fruit'))) score += 60
         }
 
-        // Laptops & Computers partial & full matching
+        // Vegetables queries: ALL actual veggies get Tier 1 (+100,000)
         if (
-          ['laptop', 'laptops', 'computer', 'computers'].includes(qLower) ||
-          'laptops'.startsWith(qLower) ||
-          qLower.startsWith('lap')
+          ['vegetable', 'vegetables', 'veggies', 'veg'].includes(qLower) ||
+          qLower.startsWith('veg')
         ) {
-          if (['macbook', 'thinkpad', 'zenbook', 'yoga', 'inspiron', 'ideapad', 'laptop', 'intel', 'ryzen', 'hp', 'dell', 'lenovo', 'asus'].some((l) => nameLower.includes(l))) {
-            score += 100
+          if (isActualVeg(p)) {
+            score += 100000
           }
-          if (tags.some((t) => t.includes('laptop') || t.includes('computer'))) score += 60
         }
 
-        if (tags.some((t) => t.startsWith(qLower) || t.includes(qLower))) score += 40
-        if (brandLower.startsWith(qLower) || brandLower.includes(qLower)) score += 30
-        if (resolvedCatId && String(p.category?._id || p.category) === String(resolvedCatId)) score += 35
+        // Footwear queries: ALL actual footwear get Tier 1 (+100,000)
+        if (
+          ['shoe', 'shoes', 'footwear', 'sneakers', 'sneaker'].includes(qLower) ||
+          qLower.startsWith('shoe') ||
+          qLower.startsWith('foot')
+        ) {
+          if (isActualFootwear(p)) {
+            score += 100000
+          }
+        }
+
+        // Watches queries: ALL actual watches get Tier 1 (+100,000)
+        if (
+          ['watch', 'watches', 'smartwatch', 'smartwatches'].includes(qLower) ||
+          qLower.startsWith('watch')
+        ) {
+          if (isActualWatch(p)) {
+            score += 100000
+          }
+        }
+
+        // TVs queries: ALL actual TVs get Tier 1 (+100,000)
+        if (
+          ['tv', 'tvs', 'television', 'televisions'].includes(qLower) ||
+          qLower === 'tv'
+        ) {
+          if (isActualTV(p)) {
+            score += 100000
+          }
+        }
+
+        // Refrigerators queries: ALL actual fridges get Tier 1 (+100,000)
+        if (
+          ['fridge', 'fridges', 'refrigerator', 'refrigerators'].includes(qLower) ||
+          qLower.startsWith('fridg') ||
+          qLower.startsWith('refrig')
+        ) {
+          if (isActualFridge(p)) {
+            score += 100000
+          }
+        }
+
+        // Books queries: ALL actual books get Tier 1 (+100,000)
+        if (
+          ['book', 'books', 'novel', 'novels'].includes(qLower) ||
+          qLower.startsWith('book') ||
+          qLower.startsWith('novel')
+        ) {
+          if (isActualBook(p)) {
+            score += 100000
+          }
+        }
+
+        // Toys queries: ALL actual toys get Tier 1 (+100,000)
+        if (
+          ['toy', 'toys', 'game', 'games'].includes(qLower) ||
+          qLower.startsWith('toy')
+        ) {
+          if (isActualToy(p)) {
+            score += 100000
+          }
+        }
+
+        // General text matches (for specific brand, product name, tags)
+        if (nameLower.startsWith(qLower)) score += 20000
+        else if (nameLower.includes(qLower)) score += 5000
+
+        const words = nameLower.split(/\s+/)
+        if (words.some((w) => w.startsWith(qLower) || w === qLower)) score += 10000
+
+        if (brandLower === qLower || brandLower.startsWith(qLower)) score += 4000
+        else if (brandLower.includes(qLower)) score += 2000
+
+        if (tags.some((t) => t === qLower || t.startsWith(qLower))) score += 2000
+        else if (tags.some((t) => t.includes(qLower))) score += 1000
+
+        if (resolvedCatId && String(p.category?._id || p.category) === String(resolvedCatId)) {
+          score += 500 // Base score for remaining items in the matched category
+        }
 
         return score
       }
@@ -362,7 +545,7 @@ export const getProducts = async (req, res, next) => {
       const candidates = await Product.find(filter)
         .populate('category', 'name slug')
         .populate('subcategory', 'name slug')
-        .limit(300)
+        .limit(1000)
         .lean()
 
       candidates.sort((a, b) => calculateRelevance(b) - calculateRelevance(a))

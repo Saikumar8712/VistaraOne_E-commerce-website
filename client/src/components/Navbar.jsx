@@ -380,32 +380,7 @@ export default function Navbar({ categories = [] }) {
     setShowSuggestions(false)
     setOpen(false)
 
-    // Unambiguous category check:
-    // If the query matches a single category via keyword or slug/name
-    const matches = getMatchedCategories(query)
-    const normalized = query.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-    const tokens = normalized.split(/\s+/).filter(Boolean)
-    const isSingleOrPair = tokens.length <= 2
-
-    const isExplicitCatKeyword =
-      CATEGORY_KEYWORD_MAP.some((entry) =>
-        entry.keywords.some((kw) => kw === normalized || normalized.startsWith(kw) || kw.startsWith(normalized))
-      ) ||
-      cats.some((c) => {
-        const cSlug = String(c.slug || '').toLowerCase()
-        const cName = String(c.name || '').toLowerCase()
-        return (
-          cSlug === normalized ||
-          cName.includes(normalized) ||
-          tokens.every((t) => cName.includes(t) || cSlug.includes(t))
-        )
-      })
-
-    if (matches.length === 1 && isSingleOrPair && isExplicitCatKeyword) {
-      navigate(`/c/${matches[0].slug}`)
-      return
-    }
-
+    // Always navigate to search results page with 2-tier relevance ranking
     navigate(`/search?q=${encodeURIComponent(query)}`)
   }
 
