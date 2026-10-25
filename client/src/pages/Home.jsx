@@ -158,7 +158,7 @@ export default function Home() {
           </motion.div>
 
           {/* Interactive Category Showcase Icons */}
-          <div className="grid grid-cols-3 gap-3 max-h-[380px] overflow-y-auto scrollbar-none pr-1 pb-2">
+          <div className="grid grid-cols-3 gap-3 max-h-[420px] overflow-y-auto scrollbar-none p-2 pb-5">
             {cats.map((c, i) => {
               const I = c.icon && Icons[c.icon] ? Icons[c.icon] : Icons.Package
               return (
