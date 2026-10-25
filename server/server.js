@@ -60,7 +60,22 @@ app.use(
   })
 )
 
-// Health check endpoint
+// Root and health check endpoints
+app.get('/', (_, res) =>
+  res.json({
+    success: true,
+    name: 'VistaraOne E-Commerce API',
+    status: 'operational',
+    healthCheck: '/api/health',
+    endpoints: {
+      products: '/api/products',
+      categories: '/api/categories',
+      campaigns: '/api/campaigns',
+    },
+    timestamp: new Date().toISOString(),
+  })
+)
+
 app.get('/api/health', (_, res) =>
   res.json({
     ok: true,
