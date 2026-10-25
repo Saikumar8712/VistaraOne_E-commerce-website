@@ -14,46 +14,91 @@ export const resolveCategory = async (catStr) => {
   }
   const clean = catStr.toLowerCase().trim()
   const aliases = {
-    mobiles: 'mobiles-smartphones',
-    mobile: 'mobiles-smartphones',
-    smartphones: 'mobiles-smartphones',
-    smartphone: 'mobiles-smartphones',
-    phone: 'mobiles-smartphones',
-    phones: 'mobiles-smartphones',
-    laptops: 'laptops-computers',
-    laptop: 'laptops-computers',
-    computers: 'laptops-computers',
-    computer: 'laptops-computers',
+    // Mobiles & Electronics
+    mobiles: 'electronics',
+    mobile: 'electronics',
+    smartphones: 'electronics',
+    smartphone: 'electronics',
+    phone: 'electronics',
+    phones: 'electronics',
+    laptops: 'electronics',
+    laptop: 'electronics',
+    computers: 'electronics',
+    computer: 'electronics',
     'electronics-accessories': 'electronics',
     electronic: 'electronics',
     electronics: 'electronics',
+    audio: 'electronics',
+    headphones: 'electronics',
+    earbuds: 'electronics',
+
+    // Fashion & Lifestyle
     'fashion-clothing': 'fashion',
     clothing: 'fashion',
     clothes: 'fashion',
     fashion: 'fashion',
-    shoes: 'footwear',
-    shoe: 'footwear',
-    footwear: 'footwear',
+    shoes: 'fashion',
+    shoe: 'fashion',
+    footwear: 'fashion',
+    sneakers: 'fashion',
+    watches: 'fashion',
+    watch: 'fashion',
+
+    // Appliances
     'home-appliances': 'appliances',
     appliances: 'appliances',
     appliance: 'appliances',
+    tv: 'appliances',
+    tvs: 'appliances',
+    refrigerator: 'appliances',
+    fridge: 'appliances',
+    'washing-machine': 'appliances',
+
+    // Home & Kitchen
     'home-kitchen': 'home-kitchen',
     kitchen: 'home-kitchen',
+    cookware: 'home-kitchen',
+
+    // Groceries
     'grocery-essentials': 'groceries',
     grocery: 'groceries',
     groceries: 'groceries',
-    'beauty-pets': 'beauty-personal-care',
-    beauty: 'beauty-personal-care',
-    watches: 'watches-accessories',
-    watch: 'watches-accessories',
+    staples: 'groceries',
+
+    // Fresh Market
     fruits: 'fresh-market',
     fruit: 'fresh-market',
     fresh: 'fresh-market',
+    vegetables: 'fresh-market',
+    vegetable: 'fresh-market',
+    veggies: 'fresh-market',
+
+    // Beauty & Personal Care
+    'beauty-personal-care': 'beauty-pets',
+    'beauty-pets': 'beauty-pets',
+    beauty: 'beauty-pets',
+    skincare: 'beauty-pets',
+    cosmetics: 'beauty-pets',
+
+    // Sports & Fitness
     sports: 'sports',
     sport: 'sports',
     fitness: 'sports',
+    gym: 'sports',
+    yoga: 'sports',
+
+    // Toys & Baby Care
+    toys: 'toys',
+    toy: 'toys',
+    baby: 'toys',
+    kids: 'toys',
+    games: 'toys',
+
+    // Books & Stationery
     books: 'books',
     book: 'books',
+    stationery: 'books',
+    novels: 'books',
   }
   const targetSlug = aliases[clean] || clean
   return await Category.findOne({
@@ -61,6 +106,7 @@ export const resolveCategory = async (catStr) => {
       { slug: clean },
       { slug: targetSlug },
       { name: new RegExp(`^${clean.replace(/-/g, ' ')}$`, 'i') },
+      { name: new RegExp(`${clean.replace(/-/g, ' ')}`, 'i') },
     ],
   }).lean()
 }
@@ -201,6 +247,7 @@ export const getProducts = async (req, res, next) => {
     }
 
     // Sorting map
+    const isDefaultSort = !req.query.sort
     let sortOption = { createdAt: -1 }
     switch (sort) {
       case 'price-asc':
@@ -224,6 +271,67 @@ export const getProducts = async (req, res, next) => {
       default:
         sortOption = { createdAt: -1 }
         break
+    }
+
+    // When searching with a text query and without explicit price/rating sort, rank candidates by relevance
+    if (q && q.trim() && isDefaultSort) {
+      const qLower = q.trim().toLowerCase()
+      const resolvedCatId = filter.category ? String(filter.category) : null
+
+      const calculateRelevance = (p) => {
+        let score = 0
+        const nameLower = (p.name || '').toLowerCase()
+        const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : []
+        const brandLower = (p.brand || '').toLowerCase()
+
+        if (nameLower.startsWith(qLower)) score += 120
+        else if (nameLower.includes(qLower)) score += 80
+
+        if (['mobile', 'mobiles', 'smartphone', 'smartphones', 'phone', 'phones'].includes(qLower)) {
+          if (['galaxy', 'iphone', 'oneplus', 'pixel', 'redmi', 'vivo', 'realme', 'motorola', 'poco', 'smartphone', '5g'].some((m) => nameLower.includes(m))) {
+            score += 90
+          }
+          if (tags.includes('smartphone') || tags.includes('mobile')) score += 60
+        }
+
+        if (['fruit', 'fruits'].includes(qLower)) {
+          if (['mango', 'apple', 'banana', 'orange', 'grape', 'berry', 'strawberry', 'kiwi', 'pomegranate', 'avocado', 'papaya', 'watermelon', 'melon', 'pineapple', 'guava', 'fig'].some((f) => nameLower.includes(f))) {
+            score += 90
+          }
+          if (tags.includes('fruits') || tags.includes('fruit')) score += 60
+        }
+
+        if (tags.some((t) => t.includes(qLower))) score += 40
+        if (brandLower.includes(qLower)) score += 30
+        if (resolvedCatId && String(p.category?._id || p.category) === String(resolvedCatId)) score += 35
+
+        return score
+      }
+
+      const candidates = await Product.find(filter)
+        .populate('category', 'name slug')
+        .populate('subcategory', 'name slug')
+        .limit(300)
+        .lean()
+
+      candidates.sort((a, b) => calculateRelevance(b) - calculateRelevance(a))
+      const total = candidates.length
+      const paginated = candidates.slice((page - 1) * limit, page * limit)
+      const totalPages = Math.ceil(total / limit)
+      const formatted = paginated.map(formatProduct)
+
+      return res.json({
+        success: true,
+        data: formatted,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      })
     }
 
     const [rawProducts, total] = await Promise.all([

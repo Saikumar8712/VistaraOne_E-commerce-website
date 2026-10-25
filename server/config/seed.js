@@ -118,10 +118,50 @@ export const categoriesData = [
   },
 ]
 
+function expandTo100Plus(baseItems, prefix, categoryId, targetCount = 105) {
+  const result = [...baseItems]
+  const variantModifiers = [
+    { titleSuffix: ' (Pro Series / 2026 Model)', priceMul: 1.25, mrpMul: 1.28 },
+    { titleSuffix: ' (Family Value Pack)', priceMul: 1.75, mrpMul: 1.85 },
+    { titleSuffix: ' (Deluxe Edition with Extended Care)', priceMul: 1.15, mrpMul: 1.2 },
+  ]
+
+  let modIdx = 0
+  let index = baseItems.length
+
+  while (result.length < targetCount) {
+    const base = baseItems[(index - baseItems.length) % baseItems.length]
+    const mod = variantModifiers[modIdx % variantModifiers.length]
+    modIdx++
+    index++
+
+    const num = String(index).padStart(3, '0')
+    const sku = `VO-${prefix}-${num}`
+    const name = `${base.name.replace(/\([^)]*\)/g, '').trim()}${mod.titleSuffix}`
+    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${sku.toLowerCase()}`
+
+    result.push({
+      ...base,
+      _id: new mongoose.Types.ObjectId(),
+      name,
+      slug,
+      sku,
+      category: categoryId,
+      price: Math.round(base.price * mod.priceMul),
+      originalPrice: Math.round(base.originalPrice * mod.mrpMul),
+      stock: 10 + (index % 30),
+      isFeatured: index % 7 === 0,
+      isBestseller: index % 5 === 0,
+    })
+  }
+
+  return result
+}
+
 export async function runSeed() {
   try {
     console.log('\n============================================================')
-    console.log('  VistaraOne — Full Database Seeder (50+ Products / Category)')
+    console.log('  VistaraOne — Full Database Seeder (100+ Products / Category)')
     console.log('============================================================\n')
 
     await connectDB()
@@ -141,82 +181,82 @@ export async function runSeed() {
       return acc
     }, {})
 
-    // 3. Generate 50+ rich products for EACH category
-    console.log('[Seed] Generating 50+ products for each category...')
+    // 3. Generate 100+ rich products for EACH category
+    console.log('[Seed] Generating 100+ products for each category...')
 
     const allProducts = []
 
-    // 1. Electronics & Mobiles (mobiles + laptops + audio)
+    // 1. Electronics & Mobiles (mobiles + laptops + audio = 155 items)
     const elecId = categoryMap['electronics']
     const elecItems = [
       ...generateMobiles(elecId),
-      ...generateLaptops(elecId).slice(0, 15),
-      ...generateElectronics(elecId).slice(0, 15),
+      ...generateLaptops(elecId),
+      ...generateElectronics(elecId),
     ]
     allProducts.push(...elecItems)
     console.log(`   • [electronics] -> ${elecItems.length} products`)
 
-    // 2. Fashion & Lifestyle (fashion + footwear + watches)
+    // 2. Fashion & Lifestyle (fashion + footwear + watches = 150 items)
     const fashId = categoryMap['fashion']
     const fashItems = [
       ...generateFashion(fashId),
-      ...generateFootwear(fashId).slice(0, 15),
-      ...generateWatches(fashId).slice(0, 15),
+      ...generateFootwear(fashId),
+      ...generateWatches(fashId),
     ]
     allProducts.push(...fashItems)
     console.log(`   • [fashion] -> ${fashItems.length} products`)
 
-    // 3. Appliances
+    // 3. Appliances (105 items)
     const appId = categoryMap['appliances']
-    const appItems = generateAppliances(appId)
+    const appItems = expandTo100Plus(generateAppliances(appId), 'APP', appId, 105)
     allProducts.push(...appItems)
     console.log(`   • [appliances] -> ${appItems.length} products`)
 
-    // 4. Home & Kitchen
+    // 4. Home & Kitchen (105 items)
     const kitId = categoryMap['home-kitchen']
-    const kitItems = generateKitchen(kitId)
+    const kitItems = expandTo100Plus(generateKitchen(kitId), 'KIT', kitId, 105)
     allProducts.push(...kitItems)
     console.log(`   • [home-kitchen] -> ${kitItems.length} products`)
 
-    // 5. Groceries & Daily Needs
+    // 5. Groceries & Daily Needs (105 items)
     const grocId = categoryMap['groceries']
-    const grocItems = generateGroceries(grocId)
+    const grocItems = expandTo100Plus(generateGroceries(grocId), 'GROC', grocId, 105)
     allProducts.push(...grocItems)
     console.log(`   • [groceries] -> ${grocItems.length} products`)
 
-    // 6. Fresh Market
+    // 6. Fresh Market (105 items)
     const frshId = categoryMap['fresh-market']
-    const frshItems = generateFreshMarket(frshId)
+    const frshItems = expandTo100Plus(generateFreshMarket(frshId), 'FRSH', frshId, 105)
     allProducts.push(...frshItems)
     console.log(`   • [fresh-market] -> ${frshItems.length} products`)
 
-    // 7. Beauty & Personal Care
+    // 7. Beauty & Personal Care (105 items)
     const beautyId = categoryMap['beauty-pets']
-    const beautyItems = generateBeauty(beautyId)
+    const beautyItems = expandTo100Plus(generateBeauty(beautyId), 'BTY', beautyId, 105)
     allProducts.push(...beautyItems)
     console.log(`   • [beauty-pets] -> ${beautyItems.length} products`)
 
-    // 8. Sports & Fitness
+    // 8. Sports & Fitness (105 items)
     const sportsId = categoryMap['sports']
-    const sportsItems = generateSports(sportsId)
+    const sportsItems = expandTo100Plus(generateSports(sportsId), 'SPRT', sportsId, 105)
     allProducts.push(...sportsItems)
     console.log(`   • [sports] -> ${sportsItems.length} products`)
 
-    // 9. Toys & Baby Care
+    // 9. Toys & Baby Care (105 items)
     const toysId = categoryMap['toys']
-    const toysItems = generateToys(toysId)
+    const toysItems = expandTo100Plus(generateToys(toysId), 'TOY', toysId, 105)
     allProducts.push(...toysItems)
     console.log(`   • [toys] -> ${toysItems.length} products`)
 
-    // 10. Books & Stationery
+    // 10. Books & Stationery (105 items)
     const booksId = categoryMap['books']
-    const booksItems = generateBooks(booksId)
+    const booksItems = expandTo100Plus(generateBooks(booksId), 'BOOK', booksId, 105)
     allProducts.push(...booksItems)
     console.log(`   • [books] -> ${booksItems.length} products`)
 
     console.log(`\n[Seed] Bulk inserting ${allProducts.length} verified products into MongoDB...`)
     const insertedProducts = await Product.insertMany(allProducts, { ordered: false })
-    console.log(`[Seed] ✅ Successfully seeded ${insertedProducts.length} products across ${createdCategories.length} categories! (50+ each)`)
+    console.log(`[Seed] ✅ Successfully seeded ${insertedProducts.length} products across ${createdCategories.length} categories! (100+ each)`)
 
     // 4. Seed Users (Admin & Customer)
     console.log('\n[Seed] Ensuring Admin and Demo Customer accounts exist...')
