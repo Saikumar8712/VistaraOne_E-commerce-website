@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useShop } from '../context/ShopContext'
 import { useAuth } from '../context/AuthContext'
+import { getProducts } from '../services/api'
 
 export default function Navbar({ categories = [] }) {
   const {
@@ -57,6 +58,53 @@ export default function Navbar({ categories = [] }) {
     error: null,
   })
   const [searchQ, setSearchQ] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchContainerRef = useRef(null)
+
+  // Live autocomplete search query with 220ms debounce
+  useEffect(() => {
+    const trimmed = searchQ.trim()
+    if (!trimmed || trimmed.length < 2) {
+      setSuggestions([])
+      setIsSearching(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await getProducts({ q: trimmed, limit: 6 })
+        if (res?.success && Array.isArray(res.data)) {
+          setSuggestions(res.data)
+        } else {
+          setSuggestions([])
+        }
+      } catch (err) {
+        console.warn('Autocomplete search error:', err.message)
+        setSuggestions([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 220)
+
+    return () => clearTimeout(timer)
+  }, [searchQ])
+
+  // Click outside to close search suggestions
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Category horizontal scroll ref
   const catScrollRef = useRef(null)
@@ -232,12 +280,25 @@ export default function Navbar({ categories = [] }) {
   }
 
   const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQ.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQ.trim())}`)
-      setSearchQ('')
+    if (e) e.preventDefault()
+    const query = searchQ.trim()
+    if (query) {
+      setShowSuggestions(false)
       setOpen(false)
+      navigate(`/search?q=${encodeURIComponent(query)}`)
     }
+  }
+
+  const handleSelectSuggestion = (productId) => {
+    setShowSuggestions(false)
+    setOpen(false)
+    navigate(`/product/${productId}`)
+  }
+
+  const handleClearSearch = () => {
+    setSearchQ('')
+    setSuggestions([])
+    setShowSuggestions(false)
   }
 
   const locationSummary = deliveryLocation?.area || deliveryLocation?.city || 'Delivery Area'
@@ -439,27 +500,135 @@ export default function Navbar({ categories = [] }) {
           </AnimatePresence>
         </div>
 
-        {/* Global Search Bar */}
-        <form
-          onSubmit={handleSearch}
-          className="relative mx-2 hidden flex-1 max-w-xl md:block"
-          role="search"
-        >
-          <input
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            aria-label="Search products"
-            placeholder="Search for Mobiles, Electronics, Fashion, Cookware, Groceries…"
-            className="w-full rounded-xl border-0 bg-white py-2.5 pl-4 pr-11 text-xs font-medium text-navy shadow-inner focus:outline-none focus:ring-2 focus:ring-lime"
-          />
-          <button
-            type="submit"
-            className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-lg bg-lime text-navy transition hover:bg-[#a5e354]"
-            aria-label="Search"
+        {/* Global Search Bar with Live Suggestions Dropdown */}
+        <div ref={searchContainerRef} className="relative mx-2 hidden flex-1 max-w-xl md:block">
+          <form
+            onSubmit={handleSearch}
+            className="relative"
+            role="search"
           >
-            <Search className="h-4 w-4" />
-          </button>
-        </form>
+            <input
+              value={searchQ}
+              onChange={(e) => {
+                setSearchQ(e.target.value)
+                setShowSuggestions(true)
+              }}
+              onFocus={() => {
+                if (searchQ.trim().length >= 2) {
+                  setShowSuggestions(true)
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setShowSuggestions(false)
+                }
+              }}
+              aria-label="Search products"
+              placeholder="Search for Mobiles, Electronics, Fashion, Cookware, Groceries…"
+              className="w-full rounded-xl border-0 bg-white py-2.5 pl-4 pr-20 text-xs font-medium text-navy shadow-inner focus:outline-none focus:ring-2 focus:ring-lime"
+            />
+
+            {/* Clear Button (X) */}
+            {searchQ.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-10 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-navy transition"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Search Submit Button */}
+            <button
+              type="submit"
+              className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-lg bg-lime text-navy transition hover:bg-[#a5e354]"
+              aria-label="Search"
+            >
+              {isSearching ? (
+                <Loader2 className="h-4 w-4 animate-spin text-navy" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </button>
+          </form>
+
+          {/* Autocomplete Suggestions Dropdown */}
+          <AnimatePresence>
+            {showSuggestions && searchQ.trim().length >= 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.15 }}
+                className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#131d31]"
+              >
+                {isSearching && suggestions.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500 dark:text-slate-400">
+                    <Loader2 className="h-4 w-4 animate-spin text-lime-600 dark:text-lime" />
+                    <span>Searching catalog for "{searchQ.trim()}"…</span>
+                  </div>
+                ) : suggestions.length > 0 ? (
+                  <div className="py-2">
+                    <div className="px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Product Suggestions
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                      {suggestions.map((item) => (
+                        <div
+                          key={item._id}
+                          onClick={() => handleSelectSuggestion(item._id)}
+                          className="flex cursor-pointer items-center gap-3 px-3.5 py-2.5 transition hover:bg-slate-50 dark:hover:bg-white/5"
+                        >
+                          <img
+                            src={item.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100'}
+                            alt={item.name}
+                            className="h-10 w-10 shrink-0 rounded-lg object-cover bg-slate-100 dark:bg-slate-800"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-xs font-bold text-navy dark:text-white">
+                              {item.name}
+                            </h4>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                              {item.brand && <span>{item.brand}</span>}
+                              {item.brand && <span>•</span>}
+                              <span className="capitalize">{item.category}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-extrabold text-navy dark:text-lime">
+                              ₹{item.price?.toLocaleString('en-IN')}
+                            </span>
+                            {item.originalPrice && item.originalPrice > item.price && (
+                              <div className="text-[10px] text-slate-400 line-through">
+                                ₹{item.originalPrice?.toLocaleString('en-IN')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-slate-100 px-3.5 py-2 text-center dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={handleSearch}
+                        className="text-xs font-bold text-navy hover:text-lime-600 dark:text-lime dark:hover:underline"
+                      >
+                        View all results for "{searchQ.trim()}" →
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                    <p className="font-semibold text-navy dark:text-white">No products found for "{searchQ.trim()}"</p>
+                    <p className="mt-1 text-[11px]">Press Enter to see all search options or explore categories</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Right Navigation Icons */}
         <nav className="ml-auto flex items-center gap-3 sm:gap-4">
@@ -579,14 +748,25 @@ export default function Navbar({ categories = [] }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-white/10 bg-navy-800 px-4 py-3 lg:hidden"
           >
-            <form onSubmit={handleSearch} className="mb-3 flex gap-2">
-              <input
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="Search products…"
-                className="w-full rounded-xl bg-white/10 px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:bg-white/20 focus:outline-none"
-                aria-label="Search"
-              />
+            <form onSubmit={handleSearch} className="mb-3 relative flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  value={searchQ}
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  placeholder="Search products…"
+                  className="w-full rounded-xl bg-white/10 px-3.5 py-2 pr-8 text-xs text-white placeholder-slate-400 focus:bg-white/20 focus:outline-none"
+                  aria-label="Search"
+                />
+                {searchQ.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
               <button
                 type="submit"
                 className="rounded-xl bg-lime px-3.5 text-xs font-black text-navy"

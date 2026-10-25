@@ -15,19 +15,45 @@ export const resolveCategory = async (catStr) => {
   const clean = catStr.toLowerCase().trim()
   const aliases = {
     mobiles: 'mobiles-smartphones',
+    mobile: 'mobiles-smartphones',
     smartphones: 'mobiles-smartphones',
+    smartphone: 'mobiles-smartphones',
+    phone: 'mobiles-smartphones',
+    phones: 'mobiles-smartphones',
     laptops: 'laptops-computers',
+    laptop: 'laptops-computers',
     computers: 'laptops-computers',
+    computer: 'laptops-computers',
     'electronics-accessories': 'electronics',
+    electronic: 'electronics',
+    electronics: 'electronics',
     'fashion-clothing': 'fashion',
     clothing: 'fashion',
+    clothes: 'fashion',
+    fashion: 'fashion',
     shoes: 'footwear',
+    shoe: 'footwear',
+    footwear: 'footwear',
     'home-appliances': 'appliances',
+    appliances: 'appliances',
+    appliance: 'appliances',
+    'home-kitchen': 'home-kitchen',
+    kitchen: 'home-kitchen',
     'grocery-essentials': 'groceries',
     grocery: 'groceries',
+    groceries: 'groceries',
     'beauty-pets': 'beauty-personal-care',
     beauty: 'beauty-personal-care',
     watches: 'watches-accessories',
+    watch: 'watches-accessories',
+    fruits: 'fresh-market',
+    fruit: 'fresh-market',
+    fresh: 'fresh-market',
+    sports: 'sports',
+    sport: 'sports',
+    fitness: 'sports',
+    books: 'books',
+    book: 'books',
   }
   const targetSlug = aliases[clean] || clean
   return await Category.findOne({
@@ -135,15 +161,43 @@ export const getProducts = async (req, res, next) => {
       filter.$expr = { $gt: ['$originalPrice', '$price'] }
     }
 
-    // Search query: Text search with fallback to Regex for partial match
+    // Search query: Enhanced regex search across name, brand, tags, description + matching categories
     if (q && q.trim()) {
       const queryStr = q.trim()
-      filter.$or = [
-        { name: { $regex: queryStr, $options: 'i' } },
-        { brand: { $regex: queryStr, $options: 'i' } },
-        { tags: { $regex: queryStr, $options: 'i' } },
-        { description: { $regex: queryStr, $options: 'i' } },
+      const singular = queryStr.length > 3 ? queryStr.replace(/s$/i, '') : queryStr
+      const regexPattern = queryStr.length > 3 ? `${queryStr}|${singular}` : queryStr
+      const searchRegex = new RegExp(regexPattern, 'i')
+
+      // Also check if the search term matches any category (e.g. "fruits", "mobile", "laptops")
+      const resolvedCat = await resolveCategory(queryStr)
+      const matchingCats = await Category.find({
+        $or: [
+          { name: searchRegex },
+          { slug: searchRegex },
+          { description: searchRegex },
+        ],
+      }).select('_id').lean()
+
+      const catIds = []
+      if (resolvedCat) catIds.push(resolvedCat._id)
+      matchingCats.forEach((c) => {
+        if (!catIds.some((id) => String(id) === String(c._id))) {
+          catIds.push(c._id)
+        }
+      })
+
+      const orConditions = [
+        { name: searchRegex },
+        { brand: searchRegex },
+        { tags: searchRegex },
+        { description: searchRegex },
       ]
+
+      if (catIds.length > 0) {
+        orConditions.push({ category: { $in: catIds } })
+      }
+
+      filter.$or = orConditions
     }
 
     // Sorting map

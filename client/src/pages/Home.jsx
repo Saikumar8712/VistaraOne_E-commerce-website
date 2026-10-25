@@ -4,66 +4,24 @@ import { motion } from 'motion/react'
 import * as Icons from 'lucide-react'
 import { ArrowRight, Truck, ShieldCheck, RotateCcw, Headphones, Mail, Sparkles, AlertCircle } from 'lucide-react'
 import Navbar from '../components/Navbar'
-import ProductCard from '../components/ProductCard'
+import ProductHorizontalRow from '../components/ProductHorizontalRow'
 import { useShop } from '../context/ShopContext'
 import { getCategories, getProducts } from '../services/api'
 
-const Section = ({ title, sub, onSeeMore, children }) => (
+const Section = ({ title, sub, children }) => (
   <motion.section
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
     className="mx-auto max-w-7xl px-4 py-8"
   >
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <h2 className="text-2xl font-black text-navy dark:text-white">{title}</h2>
-        {sub && <p className="text-xs text-slate-500 dark:text-slate-400">{sub}</p>}
-      </div>
-      {onSeeMore && (
-        <button
-          type="button"
-          onClick={onSeeMore}
-          className="group inline-flex items-center gap-1.5 rounded-xl border border-navy/15 bg-white px-3.5 py-1.5 text-xs font-bold text-navy shadow-sm transition hover:border-lime hover:bg-lime hover:text-navy dark:border-white/10 dark:bg-white/10 dark:text-lime dark:hover:bg-lime dark:hover:text-navy"
-        >
-          <span>See More</span>
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-        </button>
-      )}
+    <div className="mb-5">
+      <h2 className="text-2xl font-black text-navy dark:text-white">{title}</h2>
+      {sub && <p className="text-xs text-slate-500 dark:text-slate-400">{sub}</p>}
     </div>
     {children}
   </motion.section>
 )
-
-const Grid = ({ items, loading }) => {
-  if (loading) {
-    return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="aspect-[3/4] animate-pulse rounded-2xl bg-white p-3.5 shadow-sm dark:bg-[#131d31]"
-          >
-            <div className="aspect-square w-full rounded-xl bg-slate-200 dark:bg-slate-800" />
-            <div className="mt-3 h-3 w-1/2 rounded bg-slate-200 dark:bg-slate-800" />
-            <div className="mt-2 h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
-            <div className="mt-4 h-6 w-1/3 rounded bg-slate-200 dark:bg-slate-800" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  return items.length ? (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-      {items.map((p) => (
-        <ProductCard key={p._id} p={p} />
-      ))}
-    </div>
-  ) : (
-    <p className="text-sm text-slate-400">No products available in this section.</p>
-  )
-}
 
 export default function Home() {
   const navigate = useNavigate()
@@ -127,24 +85,27 @@ export default function Home() {
   const dealsList = products
     .filter((p) => p.originalPrice && p.originalPrice > p.price)
     .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0))
-    .slice(0, 6)
-
-  const freshList = products
-    .filter((p) => /fresh|fruit|veg|market/i.test(p.category || ''))
-    .slice(0, 6)
-
-  const electronicsList = products
-    .filter((p) => /electronic|mobile|gadget|tech/i.test(p.category || ''))
-    .slice(0, 6)
-
-  const fashionList = products
-    .filter((p) => /fashion|apparel|lifestyle|wear/i.test(p.category || ''))
-    .slice(0, 6)
 
   const trendingList = products
     .filter((p) => p.isBestseller || (p.reviewCount && p.reviewCount > 100))
     .sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0))
-    .slice(0, 6)
+
+  // Deduplicate categories by lowercase name to ensure clean section display
+  const distinctCategories = Array.from(
+    cats.reduce((map, cat) => {
+      const key = (cat.name || '').trim().toLowerCase()
+      if (!key) return map
+      if (!map.has(key)) {
+        map.set(key, cat)
+      } else {
+        const existing = map.get(key)
+        if ((cat.productCount || 0) > (existing.productCount || 0)) {
+          map.set(key, cat)
+        }
+      }
+      return map
+    }, new Map()).values()
+  )
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-navy-900">
@@ -249,59 +210,38 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 1. Deals of the Day */}
+      {/* 1. Deals of the Day (Horizontal Row) */}
       {dealsList.length > 0 && (
-        <Section
+        <ProductHorizontalRow
           title="⚡ Deals of the Day"
           sub="Unbeatable price drops on top smartphones, audio, and kitchen appliances"
-          onSeeMore={() => navigate('/c/electronics')}
-        >
-          <Grid items={dealsList} loading={loading} />
-        </Section>
+          initialItems={dealsList}
+          icon={Icons.Zap}
+        />
       )}
 
-      {/* 2. Electronics & Mobiles */}
-      {electronicsList.length > 0 && (
-        <Section
-          title="📱 Electronics & Mobiles"
-          sub="Smartphones, noise-cancelling headphones, and smart wearables"
-          onSeeMore={() => navigate('/c/electronics')}
-        >
-          <Grid items={electronicsList} loading={loading} />
-        </Section>
-      )}
+      {/* 2. All Homepage Categories from Real Catalog (Horizontal Rows) */}
+      {distinctCategories.map((c) => {
+        const IconComponent = c.icon && Icons[c.icon] ? Icons[c.icon] : Icons.Package
+        return (
+          <ProductHorizontalRow
+            key={c._id || c.slug}
+            title={c.name}
+            sub={c.description || `Explore our top-rated ${c.name} collection`}
+            categorySlug={c.slug}
+            icon={IconComponent}
+          />
+        )
+      })}
 
-      {/* 3. Fashion & Lifestyle */}
-      {fashionList.length > 0 && (
-        <Section
-          title="👔 Fashion & Lifestyle"
-          sub="Men's casual wear, festive ethnic collections, and performance footwear"
-          onSeeMore={() => navigate('/c/fashion')}
-        >
-          <Grid items={fashionList} loading={loading} />
-        </Section>
-      )}
-
-      {/* 4. Fresh Market & Groceries */}
-      {freshList.length > 0 && (
-        <Section
-          title="🍎 Fresh Market & Groceries"
-          sub="Farm-fresh fruits, aged basmati rice, dry fruits and daily staples"
-          onSeeMore={() => navigate('/c/fresh-market')}
-        >
-          <Grid items={freshList} loading={loading} />
-        </Section>
-      )}
-
-      {/* 5. Trending & Bestsellers */}
+      {/* 3. Trending & Bestsellers (Horizontal Row) */}
       {trendingList.length > 0 && (
-        <Section
+        <ProductHorizontalRow
           title="🔥 Trending & Bestsellers"
           sub="Most popular products with thousands of 5-star customer ratings"
-          onSeeMore={() => navigate('/c/electronics')}
-        >
-          <Grid items={trendingList} loading={loading} />
-        </Section>
+          initialItems={trendingList}
+          icon={Icons.Flame}
+        />
       )}
 
       {/* Value Perks */}
