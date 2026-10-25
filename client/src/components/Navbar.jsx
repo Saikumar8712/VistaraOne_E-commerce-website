@@ -730,7 +730,7 @@ export default function Navbar({ categories = [] }) {
       </div>
 
       {/* Dedicated Mobile Search Bar Row (Always visible on mobile screens) */}
-      <div className="border-t border-white/10 bg-navy-800/90 px-4 py-2.5 md:hidden">
+      <div className="border-t border-white/10 bg-navy-800/90 px-4 pt-1.5 pb-2 md:hidden">
         {renderSearchInput(true)}
       </div>
 

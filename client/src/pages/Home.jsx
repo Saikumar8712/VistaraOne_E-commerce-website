@@ -125,7 +125,7 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="bg-navy text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 pt-14 pb-8 md:pb-10 md:grid-cols-2">
+        <div className="mx-auto grid max-w-7xl items-center gap-6 px-4 pt-3 sm:pt-6 md:pt-10 pb-8 md:pb-10 md:grid-cols-2">
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-lime/20 px-3.5 py-1 text-xs font-bold text-lime">
               <Sparkles className="h-3.5 w-3.5" />
